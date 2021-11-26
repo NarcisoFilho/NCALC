@@ -1,7 +1,7 @@
 ; ╔══════════════════════════════════════════════════════════════════╗
 ; ║                   UFRGS - Instituto de Informática               ║
 ; ║    Trabalho de Arquitetura e Organização de Computadores I       ║
-; ║                         INF01108                                 ║
+; ║                             INF01108                             ║
 ; ╠══════════════════════════════════════════════════════════════════╣
 ; ║    Estudante: Manoel Narciso Reis Soares Filho                   ║
 ; ║    Data: 21/11/2021                                              ║
@@ -128,7 +128,8 @@ ARQ_READ        equ     00h
 ; Variáveis para o sistema de arquivos
 FileName		db		256 dup (?)		; Nome do arquivo a ser lido
 ; OutputFileName  db		256 dup (?)		; Nome do arquivo de saida
-OutputFileName  db		"abc.res", EOS
+OutputFileName  db		"abcdefghijklmnopqrstuv.res", EOS
+EndFormatRES    db		".res", EOS     ; Nome do formato do arquivo de saída
 FileBuffer		db		10  dup (?)		; Buffer de leitura do arquivo
 FileHandle		dw		0				; Handler do arquivo
 FileNameBuffer	db		150 dup (?)
@@ -158,6 +159,7 @@ FileNameBuffer	db		150 dup (?)
     ; Constantes
     const_2         db      2         ; Constante 2
     const_10        db      10        ; Constante 10
+    const_10_w      dw      10        ; Constante 10 in word format
     const_100       db      100       ; Constante 100
     
     ; Gerais
@@ -175,7 +177,7 @@ TAM_MSGS_ERROS      equ  56
 
 
 ; Outras Mensagens
-MsgEntrada    		    db	CR, LF, LF, "___________________ Contabilidade 1.0 ___________________", CR, LF, LF, 0
+MsgEntrada    		    db	CR, LF, LF, "___________________ NCalc ___________________", CR, LF, LF, 0
 MsgPedeArquivo		    db	"Nome do arquivo: ", 0
 MsgFN		            db	CR, LF, "Feliz Natal! ", CR, LF, 0
  
@@ -186,8 +188,10 @@ MsgTesteFormatarEntrada db	CR, LF, LF, "Entrada formatada: ", CR, LF, LF, 0
 MsgTesteAQL             db	CR, LF, LF, "Analise qualitativa: ", CR, LF, LF, 0
 MsgTesteAQT             db	CR, LF, LF, "Analise quantitativa: ", CR, LF, LF, 0
 MsgTesteQtdLinhas       db	CR, LF, LF, "Qtd de linhas: ", 0
+MsgTesteQtdLinhasVal    db	CR, LF, LF, "Qtd de linhas validas: ", 0
 MsgTesteSoma            db	CR, LF, LF, "Soma: ", 0
 MsgTesteMedia           db	CR, LF, LF, "Media: ", 0
+MsgTesteDV              db	CR, LF, LF, "Digitos verificadores: ", 0
   	
     .code
     .startup
@@ -265,7 +269,7 @@ MsgTesteMedia           db	CR, LF, LF, "Media: ", 0
         
     call   CalculaSoma                      ; Calcula soma
     call   CalculaMedia                    ; Calcula media
-    ;call   CalculaDVs                      ; Calcula dígitos verificadores
+    call   CalculaDVs                      ; Calcula dígitos verificadores
         
                 ;Teste da computação dos valores
                 lea     bx, string_buffer
@@ -305,6 +309,15 @@ MsgTesteMedia           db	CR, LF, LF, "Media: ", 0
                 call    sprintf_w
                 call    puts    
       
+                ; Teste qtd de linhas válidas
+                lea     bx, MsgTesteQtdLinhasVal
+                call    puts
+                
+                lea     bx, string_buffer
+                mov     ax, qtd_linhas_val
+                call    sprintf_w
+                call    puts    
+      
                 ; Teste soma
                 lea     bx, MsgTesteSoma
                 call    puts
@@ -339,7 +352,28 @@ MsgTesteMedia           db	CR, LF, LF, "Media: ", 0
                 ; Parte fracionária
                 mov     ax, media_frac
                 call    sprintf_w
-                call    puts    
+                call    puts  
+        
+        ; Teste DV's
+        lea     bx, MsgTesteDV
+        call    puts
+        
+        lea     bx, string_buffer
+        mov     cx, qtd_linhas
+        mov     dl, LF        
+        mov     di, 0
+        
+        call    putchar
+        call    putchar
+        loop_test_DV:
+            mov     ah, 0
+            mov     al, byte ptr dig_verif[di]
+            call    sprintf_w
+            call    puts            
+            call    putchar
+            
+            inc     di
+        loop    loop_test_DV
       
     ; Saída
     call   SalvaOutputEmArquivo
@@ -574,8 +608,9 @@ SalvaRegs	proc	near
     push    cx
     push    dx
     
-    push    di
+    push    bp
     push    si
+    push    di
     
     ; Coloca o end de retorno novamente no topo da pilha
     push    end_retorno_SalvaRegs   
@@ -602,8 +637,9 @@ RestauraRegs	proc	near
     pop     end_retorno_RestauraRegs
     
     ; Desempilha valor dos registradores
-    pop    si
     pop    di
+    pop    si
+    pop    bp
     
     pop    dx
     pop    cx
@@ -620,6 +656,67 @@ RestauraRegs	proc	near
     end_retorno_RestauraRegs   dw  0
     
 RestauraRegs	endp
+
+
+;═══════════════════════════════════════════════════════════════════════
+;-----------------------------------------------------------------------
+; Sub-rotinas matemáticas
+
+
+; ╔══════════════════════════════════════════════════════════════════╗
+; ║ TruncaInt: "Trunca" número inteiro, mantendo apenas os 'n' pri-  ║
+; ║ meiros dígitos                                                   ║
+; ║     IN:                                                          ║
+; ║         ax -> Valor inteiro a ser "Truncado"                     ║
+; ║         cx -> Quantidade de dígitos a serem mantidos             ║
+; ║     OUT:                                                         ║
+; ║         Resultado na pilha                                       ║
+; ║                                                                  ║
+; ║     Obs.: cx máximo de 4 (suficiente para nmrs de 16 bits)       ║
+; ╚══════════════════════════════════════════════════════════════════╝
+TruncaInt	proc	near
+    ; Inicialização
+    call    SalvaRegs
+    
+    push    ax
+    
+    ; Define limite superior do intervalo permitido
+    loop_TI_def_sup:
+        mov     al, 10
+        mul     const_10
+    loop    loop_TI_def_sup
+    
+    mov     bx, ax      ; bx = Limite superior
+    pop     ax
+    
+    ; Ajusta entrada (em ax) até ser menor que o limite superior(agora em bx)    
+    loop_TruncaInt:
+        cmp     ax, bx
+        jb      fim_TruncaInt
+        
+        mov     dx, 0
+        div     const_10_w
+        
+        jmp     loop_TruncaInt
+    
+    fim_TruncaInt:
+        mov     retorno_TI, ax
+        call    RestauraRegs    ; Restaura valores dos registradores
+        
+        mov     bk_bx_TI, bx    ;|
+        pop     bx              ;|> Salva bx e desempilha endereço de retorno
+                                
+        push    retorno_TI      ; Envio do retorno da função para a pilha
+                      
+        push    bx              ; Coloca o endereço de retorno no topo da pilha novamente
+        mov     bx, bk_bx_TI    ; Restaura bx
+        ret 
+    
+    ; Local Variables
+    retorno_TI      dw      0
+    bk_bx_TI        dw      0
+    
+TruncaInt	endp
 
 
 ;═══════════════════════════════════════════════════════════════════════
@@ -656,7 +753,6 @@ strrem	proc	near
 strrem	endp
 
 
-
 ; ╔══════════════════════════════════════════════════════════════════╗
 ; ║ stradd: Adiciona elemento em uma string e desloca os elementos   ║
 ; ║ posteriores (até encontra um EOS, incluindo-o) uma posição para a║
@@ -687,126 +783,180 @@ stradd	endp
 
 
 ; ╔══════════════════════════════════════════════════════════════════╗
+; ║ strcat: Concatena uma string em outra                            ║
+; ║     IN:                                                          ║
+; ║         ds:si -> String de origem ( Será acrescentada à outra)   ║
+; ║         ds:di -> String de destino ( Alvo da concatenação)       ║
+; ║     OUT:                                                         ║
+; ║         void                                                     ║
+; ╚══════════════════════════════════════════════════════════════════╝
+strcat	proc	near
+    ; Inicialização
+    call    SalvaRegs
+    
+    ; Encontra EOS original da String de destino
+    loop_strcat_EOS_DI:
+        cmp     byte ptr [di], EOS
+        je      loop_strcat
+        inc     di
+        jmp     loop_strcat_EOS_DI
+        
+    loop_strcat:            
+        mov     dl, byte ptr[si]
+        mov     byte ptr[di], dl
+        
+        cmp     byte ptr[si], EOS    
+        je      fim_strcat
+        
+        inc     di      ; string_origem++
+        inc     si      ; string_destino++
+         
+        jmp     loop_strcat
+    
+    ; Fim
+    fim_strcat:
+        call    RestauraRegs    ; Restaura valores dos registradores
+        ret 
+        
+strcat	endp
+
+
+; ╔══════════════════════════════════════════════════════════════════╗
+; ║ strcpy: Cópia o conteúdo de uma string para outra                ║
+; ║     IN:                                                          ║
+; ║         ds:si -> String de origem ( Não será modificada )        ║
+; ║         ds:di -> String de destino                               ║
+; ║     OUT:                                                         ║
+; ║         void                                                     ║
+; ╚══════════════════════════════════════════════════════════════════╝
+strcpy	proc	near
+    ; Inicialização
+    call    SalvaRegs
+        
+    ; Cópia
+    loop_strcpy:    
+        
+        mov     dl, byte ptr[si]
+        mov     byte ptr[di], dl
+
+        cmp     byte ptr[si], EOS    
+        je      fim_strcpy
+        
+        inc     di      ; string_origem++
+        inc     si      ; string_destino++
+         
+        jmp     loop_strcpy
+    
+    ; Fim
+    fim_strcpy:
+        call    RestauraRegs    ; Restaura valores dos registradores
+        ret 
+        
+strcpy	endp
+
+
+; ╔══════════════════════════════════════════════════════════════════╗
 ; ║ sprintf_w: Salva número de 16 bits em string como texto          ║
 ; ║     IN:                                                          ║
-; ║         AX-> Valor a ser salvo                                   ║
-; ║         DS:BX-> Endereço da string de destino                    ║
+; ║         AX    -> Valor a ser salvo                               ║
+; ║         DS:BX -> Endereço da string de destino                   ║
 ; ║     OUT:                                                         ║
 ; ║          void                                                    ║
 ; ╚══════════════════════════════════════════════════════════════════╝
-;
-;--------------------------------------------------------------------
-;Função: Converte um inteiro (n) para (string)
-;		 sprintf(string, "%d", n)
-;
-;void sprintf_w(char *string->BX, WORD n->AX) {
-;	k=5;
-;	m=10000;
-;	f=0;
-;	do {
-;		quociente = n / m : resto = n % m;	// Usar instrução DIV
-;		if (quociente || f) {
-;			*string++ = quociente+'0'
-;			f = 1;
-;		}
-;		n = resto;
-;		m = m/10;
-;		--k;
-;	} while(k);
-;
-;	if (!f)
-;		*string++ = '0';
-;	*string = '\0';
-;}
-;
-;Associação de variaveis com registradores e memória
-;	string	-> bx
-;	k		-> cx
-;	m		-> sw_m dw
-;	f		-> sw_f db
-;	n		-> sw_n	dw
-;--------------------------------------------------------------------
-
 sprintf_w	proc	near
-    ; Salvar registradores
+    ; Inicialização
+    call    SalvaRegs   ; Salvar registradores
+    
+	mov		si, ax 
+	mov		cx, 5        ; k = 5
+	mov		di, 10000    ; m = 10000
+	mov		bp, FALSE    ; flag = FALSE
+	
+    loop_sprintf_w:
+        mov		dx, 0
+        mov		ax, si
+        div		di                  ; ax = Quociente = n / m : dx = resto = n % m;
+   			    
+        cmp		al, 0               ;|
+        jne		armazenar_SW        ;|
+        cmp		bp, FALSE           ;|
+        je		proxima_inter_SW    ;|> if (quociente || f)
+
+        armazenar_SW:
+            add		al, '0'         ;|
+            mov		[bx], al        ;|
+            inc		bx              ;|> *string++ = quociente + '0'
+            
+            mov		bp, TRUE        ; f = TRUE;
+        
+        proxima_inter_SW:         
+            mov		si, dx          ; n = resto                
+            mov		dx, 0           ;|
+            mov		ax, di          ;|
+            div		const_10_w      ;|
+            mov		di,ax           ;|> m = m/10
+    loop    loop_sprintf_w
+
+	cmp		bp, FALSE        ;|
+	jnz		fim_sprintf_w    ;|>	if ( !f ){
+    
+	mov		[bx], '0'        ;|
+	inc		bx               ;|> *string++ = '0'; }
+   
+    ; Fim
+    fim_sprintf_w:
+        mov		byte ptr[bx], EOS   ; *string = '\0'
+        call    RestauraRegs        ; Restaurar registradores
+        ret
+	
+sprintf_w	endp
+
+
+
+
+; ╔══════════════════════════════════════════════════════════════════╗
+; ║ rmFormatName: Remove, se houver, a extensão de um nome de arquivo║
+; ║ que se refere ao seu formato. O formato deve estar no final da   ║
+; ║ string, sendo 1 ponto e 3(ou 4) caracteres alfabéticos           ║
+; ║     IN:                                                          ║
+; ║         DS:DI -> Endereço da string de destino                   ║
+; ║     OUT:                                                         ║
+; ║          void                                                    ║
+; ╚══════════════════════════════════════════════════════════════════╝
+rmFormatName	proc	near
+    ; Inicialização
     call    SalvaRegs
     
-;void sprintf_w(char *string, WORD n) {
-	mov		sw_n,ax
-
-;	k=5;
-	mov		cx,5
-	
-;	m=10000;
-	mov		sw_m,10000
-	
-;	f=0;
-	mov		sw_f,0
-	
-;	do {
-sw_do:
-
-;		quociente = n / m : resto = n % m;	// Usar instrução DIV
-	mov		dx,0
-	mov		ax,sw_n
-	div		sw_m
-	
-;		if (quociente || f) {
-;			*string++ = quociente+'0'
-;			f = 1;
-;		}
-	cmp		al,0
-	jne		sw_store
-	cmp		sw_f,0
-	je		sw_continue
-sw_store:
-	add		al,'0'
-	mov		[bx],al
-	inc		bx
-	
-	mov		sw_f,1
-sw_continue:
-	
-;		n = resto;
-	mov		sw_n,dx
-	
-;		m = m/10;
-	mov		dx,0
-	mov		ax,sw_m
-	mov		bp,10
-	div		bp
-	mov		sw_m,ax
-	
-;		--k;
-	dec		cx
-	
-;	} while(k);
-	cmp		cx,0
-	jnz		sw_do
-
-;	if (!f)
-;		*string++ = '0';
-	cmp		sw_f,0
-	jnz		sw_continua2
-	mov		[bx],'0'
-	inc		bx
-sw_continua2:
-
-
-;	*string = '\0';
-	mov		byte ptr[bx],0
-		
-;}
+    ; Encontra EOS original da String de destino
+    loop_rmFormatName_EOS_DI:
+        cmp     byte ptr [di], EOS
+        je      remoc_rmFormatName
+        inc     di
+        jmp     loop_rmFormatName_EOS_DI
+        
+    remoc_rmFormatName:
+    cmp     byte ptr[di-4], '.'
+    je      loop_rmFormatName     
+    cmp     byte ptr[di-5] , '.'
+    jne     fim_rmFormatName
+    
+    loop_rmFormatName:
+        mov     dl, byte ptr[di]
+        mov     byte ptr[di], EOS
+        
+        cmp     dl, '.'    
+        je      fim_rmFormatName
+        
+        dec     di      ; string_origem++
+        
+        jmp     loop_rmFormatName
     
     ; Fim
-    call    RestauraRegs    ; Restaurar registradores
-	ret
-	
-    ; Local Variables
-    sw_m        dw      0
-    sw_n        dw      0
-    sw_f        dw      0
-sprintf_w	endp
+    fim_rmFormatName:
+        call    RestauraRegs    ; Restaura valores dos registradores
+        ret 
+        
+rmFormatName	endp
 
 
 ;═══════════════════════════════════════════════════════════════════════
@@ -896,7 +1046,7 @@ GetFileName	proc	near
 
 	;	// Coloca o '\0' no final do string
 	;	*d = '\0';
-	mov		byte ptr es:[di],0
+	mov		byte ptr es:[di], 0
 	ret
 GetFileName	endp
 
@@ -989,12 +1139,54 @@ TrataDados    proc	near
             jmp     loop_TrataDados
     
     fim_TrataDados:
-        call    RestauraRegs    ; Restaura valores dos registradores
+        call    rmFinalArquivoDesn      ; Remove caracteres desncessarios antes de EOF
+        
+        call    RestauraRegs            ; Restaura valores dos registradores
         ret  
     ; Local variables
     chars_array_for_removal:    db  ' ', TAB, '-'
               
 TrataDados	endp
+
+
+; ╔══════════════════════════════════════════════════════════════════╗
+; ║ rmFinalArquivoDesn: Remove algun CR e LF no fim da entrada       ║
+; ║     IN:                                                          ║
+; ║         void                                                     ║
+; ║     OUT:                                                         ║
+; ║         void                                                     ║
+; ╚══════════════════════════════════════════════════════════════════╝
+rmFinalArquivoDesn      proc near    
+    ; Inicialização
+    lea     di, entrada
+    
+    ; Encontra EOS original da String entrada
+    loop_rmFinalArquivoDesn_EOS_DI:
+        cmp     byte ptr [di], EOS
+        je      loop_rmFinalArquivoDesn
+        inc     di
+        jmp     loop_rmFinalArquivoDesn_EOS_DI
+        
+    loop_rmFinalArquivoDesn:                    
+        cmp     byte ptr[di-1], CR
+        je      prox_rmFinalArquivoDesn        
+        cmp     byte ptr[di-1], LF
+        je      prox_rmFinalArquivoDesn
+        
+        jmp     fim_rmFinalArquivoDesn
+        
+        prox_rmFinalArquivoDesn:
+        dec     di      ; string_origem--
+        
+        mov     byte ptr[di], EOS       ; *entrada = '\0'
+                        
+        jmp     loop_rmFinalArquivoDesn
+    
+    ; Fim
+    fim_rmFinalArquivoDesn:
+    ret
+rmFinalArquivoDesn      endp
+
 
 
 ; ╔══════════════════════════════════════════════════════════════════╗
@@ -1369,17 +1561,23 @@ CalculaMedia    proc	near
     ; Inicialização
     call    SalvaRegs
     
-    ; Média parte Frácionaria
-    mov     ax, soma_frac       ;|
-    mov     bx, qtd_linhas_val  ;|
-    div     bl                  ;|
-                                ;|    
-    mov     ah, 0               ;|
-    div     const_100           ;|
-    mov     al, ah              ;|
-    mov     ah, 0               ;|
-    mov     media_frac, ax      ;|> media_frac = ( soma_frac / qtd_linhas_val ) % 100
+    ; Testa qtd de linhas válidas é 0
+    cmp     qtd_linhas_val, 0
+    jbe     fim_CalculaMedia
     
+    ; Média parte Frácionaria
+    mov     dx, 0                        ;|
+    mov     ax, soma_frac                ;|
+    mov     bx, word ptr qtd_linhas_val  ;|
+    div     bx                           ;|    
+    mov     dx, 0                        ;|>  ax = soma_frac / qtd_linhas_val
+        
+    ; Nesse momento ax possui parte fracionária da media "não-arredondada"
+    mov     cx, 2               ;|
+    ;call    TruncaInt          ;| Trunca ax para duas casas decimais
+    ;pop     ax                 ;|
+    mov     media_frac, ax      ;|> media_frac = arred( soma_frac / qtd_linhas_val, 2 ) 
+        
     ; Média parte Inteira
     mov     ax, soma            ;|
     mov     bx, qtd_linhas_val  ;|
@@ -1388,13 +1586,19 @@ CalculaMedia    proc	near
     mov     ah, 0               ;|
     mov     media, ax           ;|> media = soma / qtd_linhas_val
     
-    mov     al, dh
-    mov     ah, 0
-    div     const_100
-    mov     al, ah              ;|
+    mov     al, dh              ;|
+    mov     ah, 0               ;|> Resto da divisão da parte inteira em ax
     
-    mov     al, dh
-    mov     ah, 0
+    mul     const_100           ;|
+    mov     dx, 0               ;|
+    div     bl                  ;|
+    mov     ah, 0               ;|> ax = (rest * 100) / qtd_linhas_val
+    
+    mov     cx, 2              ;|
+    call    TruncaInt          ;| Trunca ax para duas casas decimais
+    pop     ax                 ;|
+    
+    
     add     media_frac, ax       ;|> media_frac += ( soma % qtd_linhas_val ) % 100
     
     fim_CalculaMedia:
@@ -1414,6 +1618,54 @@ CalculaMedia	endp
 CalculaDVs    proc	near 
     ; Inicialização
     call    SalvaRegs
+    
+    ;       ax:     ; Acumula temporiamente o bit de paridade        
+    mov     bx, 0                   ; Contador de linha atual (16 bits)
+    mov     cx, qtd_linhas_val      ; Contador de dois loops
+           ;dx                        Recebe as entrada para fins de cálculo
+           ;di                        Recebe carry temporiaramente
+    mov     si, 0      ;Contador de linha atual (8 bits)
+    
+    ; Cálculo dos DV's
+    loop_calc_DV:
+        mov     ax, 0                    
+        
+        ; Parte inteira
+        mov     dx, entrada_int[bx]
+        push    cx                      ; Backup de cx
+        mov     cx, 16                  ; 16 bits
+        loop_xor_entrada_int:
+            mov     di, 0               ;|
+            shr     dx, 1               ;|
+            adc     di, 0               ;|
+            xor     ax, di              ;|> Xor com o próximo bit da entrada
+        loop loop_xor_entrada_int
+        pop     cx                      ; Restaura cx
+        
+        mov     byte ptr dig_verif[si], 0
+        mul     const_10
+        or      byte ptr dig_verif[si], al
+
+
+        ; Parte fracionária
+        mov     dx, entrada_frac[bx]
+        push    cx                      ; Backup de cx
+        mov     cx, 16                  ; 16 bits
+        loop_xor_entrada_frac:
+            mov     di, 0               ;|
+            shr     dx, 1               ;|
+            adc     di, 0               ;|
+            xor     ax, di              ;|> Xor com o próximo bit da entrada
+        loop loop_xor_entrada_frac
+        pop     cx                      ; Restaura cx
+        
+        and     ax, 1                           ; Aplica máscara para manter somente bit 0 de ax
+        add     byte ptr dig_verif[si], al
+                
+        add     bx, 2       ;| 
+        inc     si          ;|> linha_atual++
+    loop loop_calc_DV
+    
         
     fim_CalculaDVs:
         call    RestauraRegs    ; Restaura valores dos registradores
@@ -1433,10 +1685,19 @@ SalvaOutputEmArquivo    proc	near
     ; Inicialização
     call    SalvaRegs
     
-    ; Criar arquivo .res
-    ;lea     dx, FileName
-    lea     dx, OutputFileName    ; Nome do arquivo de saída
+    ; Formando nome do arquivo de saída
+    lea     si, FileName           ;|
+    lea     di, OutputFileName     ;|
+    call    strcpy                 ;|> Copia nome do arquivo de entrada
+    
+    call    rmFormatName           ; Remove o .txt do fim do nome copiado
+    
+    lea     si, EndFormatRES       ;|
+    call    strcat                 ;|> Concatena ".res" no nome do arq de saída
+    
+    ; Criar arquivo
     mov     cx, 0                 ; Atributos
+    lea     dx, OutputFileName    ; Nome do arquivo de saída
     call    fcreate
     
     ; Grava dados
