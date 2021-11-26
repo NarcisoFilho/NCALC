@@ -130,7 +130,7 @@ FileName		db		256 dup (?)		; Nome do arquivo a ser lido
 ; OutputFileName  db		256 dup (?)		; Nome do arquivo de saida
 OutputFileName  db		"abcdefghijklmnopqrstuv.res", EOS
 EndFormatRES    db		".res", EOS     ; Nome do formato do arquivo de saída
-FileBuffer		db		10  dup (?)		; Buffer de leitura do arquivo
+FileBuffer		db		150  dup (?)		; Buffer de leitura do arquivo
 FileHandle		dw		0				; Handler do arquivo
 FileNameBuffer	db		150 dup (?)
 
@@ -164,6 +164,11 @@ FileNameBuffer	db		150 dup (?)
     
     ; Gerais
     string_buffer   db      100 dup (?)     ; Buffer de uso geral
+
+; Mensagens de exibição do resultado
+MsgInformarSoma      db	CR, LF, LF, "Soma : ", 0
+MsgInformarMedia     db	CR, LF,     "Media: ", 0
+MsgHeader            db	"   i	║       Entrada	  ║  Dig. Verif ║", CR, LF,"════════╩═════════════════╩═════════════╝", CR, LF, 0
     
 ; Mensagens de erro
 MsgErroDefault      db	CR, LF,"Erro !!                                            ", CR, LF, 0
@@ -368,8 +373,19 @@ MsgTesteDV              db	CR, LF, LF, "Digitos verificadores: ", 0
         loop_test_DV:
             mov     ah, 0
             mov     al, byte ptr dig_verif[di]
+            div     const_10
+            
+            push    ax
+            mov     ah, 0
             call    sprintf_w
             call    puts            
+
+            pop     ax
+            mov     al, ah
+            mov     ah, 0
+            call    sprintf_w
+            call    puts 
+            
             call    putchar
             
             inc     di
@@ -583,6 +599,36 @@ fputc	proc	near
         call    RestauraRegs ; Restaura valor dos registradores
         ret
 fputc	endp
+
+
+; ╔══════════════════════════════════════════════════════════════════╗
+; ║ fputs: Escreve uma string num arquivo de texto                   ║
+; ║     IN:                                                          ║
+; ║         bx    -> Descritor do arquivo                            ║
+; ║         ds:dx -> End da string a ser escrita                     ║
+; ║     OUT:                                                         ║
+; ║          void                                                    ║
+; ╚══════════════════════════════════════════════════════════════════╝
+fputs	proc	near
+    ; Salva valor dos registradores
+    call    SalvaRegs
+    
+    ; Escrita da string no arquivo, caractere por caractere
+    loop_fputs:
+        mov     di, dx
+        cmp     byte ptr [di], EOS
+        je      fim_fputs 
+            
+        call    fputc
+        
+        inc     dx
+        jmp     loop_fputs
+        
+    ; Fim em caso de êxito
+    fim_fputs:
+        call    RestauraRegs ; Restaura valor dos registradores
+        ret
+fputs	endp
 
 
 ;═══════════════════════════════════════════════════════════════════════
@@ -1323,6 +1369,7 @@ ComputaEntrada    proc	near
     
     lea     si, entrada         ; String entrada em si
     mov     bx, 0               ; Contador para linha atual
+    mov     qtd_linhas, 0       ; Contador para a qtd de linhas 
     
     ; Loop de análise da entrada
     loop_ComputaEntrada:
@@ -1415,13 +1462,11 @@ ComputaEntrada    proc	near
         ; Nova linha
         NL_ComputaEntrada:
             add     bx, 2
+            inc     qtd_linhas
             jmp     loop_ComputaEntrada
                         
-    fim_ComputaEntrada:
-        mov     ax, bx
-        div     const_2          
-        mov     qtd_linhas, ax
-        
+    fim_ComputaEntrada:                
+        inc     qtd_linhas
         call    RestauraRegs    ; Restaura valores dos registradores
         ret  
 
@@ -1700,14 +1745,22 @@ SalvaOutputEmArquivo    proc	near
     lea     dx, OutputFileName    ; Nome do arquivo de saída
     call    fcreate
     
-    ; Grava dados
+    ; Gravação
     mov     bx, ax
     lea     dx, FileBuffer  ; dx = &FileBuffer
+        
+    ; Cabeçalho
+    lea     di, FileBuffer              ;|
+    lea     si, MsgHeader               ;|
+    call    strcpy                      ;|
+    call    fputs                       ;|> Grava cabeçalho no arquivo                                           
+
+    ; Dados
+    mov     si, 0           ; Índice do elemento da string sendo lido
+    mov     cl, 0           ; Índice da linha sendo lida (de cálculo)
+    mov     linha_des, 0    ; Índice da linha sendo lida (de desenho)
+    mov     linha_16b, 0    ; Índice da linha para leitura em 16 bits
     
-    mov     si, 0           ; Índice do elemento sendo lida
-    mov     cl, 0           ; Índice da linha sendo lida de cálculo
-    mov     linha_des, 0    ; Índice da linha sendo lida de desenho
-         
     jmp     testa_validade_SOEA 
     
     loop_grava_dados:
@@ -1725,9 +1778,44 @@ SalvaOutputEmArquivo    proc	near
         cmp     FileBuffer, CR
         je      incrementa_linha_cl
         
+        cmp     entrada[si], LF         ;|
+        je      gravar_DV_arquivo       ;|
+        cmp     entrada[si], CR         ;|
+        je      gravar_DV_arquivo       ;|> Testes para gravar DV
+                
         jmp     loop_grava_dados
         
-        
+        ; Gravar DV's no arquivo
+        gravar_DV_arquivo:
+            mov     FileBuffer, TAB
+            call    fputc
+            call    fputc                       
+            
+            ; Verifica validade da linha            
+            mov     di, cx
+            and     di, 0FFh                    ; Máscara para analisar somente cl
+            cmp     byte ptr status_linha[di], FALSE
+            je      grava_DV_XX
+                        
+            mov     ah, 0
+            mov     di, cx
+            and     di, 0FFh                    ; Máscara para analisar somente cl
+            mov     al, byte ptr dig_verif[di]
+            div     const_10            
+            
+            mov     FileBuffer, al
+            add     FileBuffer, '0'            
+            call    fputc            
+            mov     FileBuffer, ah            
+            add     FileBuffer, '0'            
+            call    fputc
+            jmp     incrementa_linha_cl
+            
+            grava_DV_XX: 
+                mov     FileBuffer, 'X'            
+                call    fputc            
+                call    fputc                        
+  
         ; Incrementa linha quando encontra LF
         incrementa_linha_cl:                               
             cmp     entrada[si], EOS
@@ -1745,6 +1833,7 @@ SalvaOutputEmArquivo    proc	near
                 je      pcd_2         ; Elimina os CR e LF colados
             
             inc     cl
+            add     linha_16b, 2
             
             ; Testa Validade da linha
             testa_validade_SOEA:
@@ -1765,6 +1854,8 @@ SalvaOutputEmArquivo    proc	near
             l_inv_SOEA:
                 pop     bx
                 mov     FileBuffer, ' '      ; Linha Inválida
+                call    fputc                ; putchar( ' ' )
+                call    fputc                ; putchar( ' ' )
                 call    fputc                ; putchar( ' ' )
                 mov     FileBuffer, '#'      ; 
                 call    fputc                ; putchar( '#' )
@@ -1788,6 +1879,10 @@ SalvaOutputEmArquivo    proc	near
                 cmp     ch, 0
                 ja     loop_montar_contador_linha
             
+            mov     FileBuffer, ' '      ; Linha Inválida
+            call    fputc                ; putchar( ' ' )
+            call    fputc                ; putchar( ' ' )
+
             mov     ch, 3               ; Número de gravações
             loop_gravar_contador_linha:
                 pop     ax
@@ -1812,18 +1907,114 @@ SalvaOutputEmArquivo    proc	near
                 mov     FileBuffer, TAB
                 call    fputc
                 
+                ; Alinha vírgulas
+                mov     FileBuffer, ' '
+                mov     di, linha_16b
+                cmp     word ptr entrada_int[di], 100
+                jae     loop_grava_dados
+                
+                call    fputc
+                
+                cmp     word ptr entrada_int[di], 10
+                jae     loop_grava_dados
+
+                call    fputc
+                
                 jmp     loop_grava_dados
     
     fim_SalvaOutputEmArquivo:
+        ; O último samurai
+        mov     FileBuffer, TAB
+        call    fputc
+        call    fputc                       
+
+        mov     di, cx
+        and     di, 0FFh                    ; Máscara para analisar somente cl
+        cmp     byte ptr status_linha[di], FALSE
+        je      grava_ULT_SAMURAI_XX
+            mov     ah, 0
+            mov     di, cx
+            and     di, 0FFh                    ; Máscara para analisar somente cl
+            mov     al, byte ptr dig_verif[di]
+            div     const_10            
+
+            mov     FileBuffer, al
+            add     FileBuffer, '0'            
+            call    fputc            
+            mov     FileBuffer, ah            
+            add     FileBuffer, '0'            
+            call    fputc
+            
+            jmp     arquiva_soma
+
+        grava_ULT_SAMURAI_XX:
+            mov     FileBuffer, 'X'            
+            call    fputc            
+            call    fputc                        
+        
+        arquiva_soma:
         ; Arquiva soma
+        ; push    dx                        ;|
+            ; lea     dx, MsgInformarSoma   ;|  
+            ; call    fputs                 ;|> Escreve msg "Soma: " no arquivo
+        ; pop     dx                        ;|
         
+        lea     di, FileBuffer              ;|
+        lea     si, MsgInformarSoma         ;|
+        call    strcpy                      ;|
+        call    fputs                       ;|> Segunda opção                                           
+                            
+        ; Parte inteira soma
+        push    bx                  ;|
+         lea     bx, FileBuffer     ;|
+         mov     ax, soma           ;|
+         call    sprintf_w          ;|
+        pop     bx                  ;|> FileBuffer = intTOstring( soma )       
+        call    fputs
         
+        mov     FileBuffer, ','
+        call    fputc
+        
+        ; Parte fracionária
+        push    bx                  ;|
+         lea     bx, FileBuffer     ;|
+         mov     ax, soma_frac      ;|
+         call    sprintf_w          ;|
+        pop     bx                  ;|> FileBuffer = intTOstring( soma )       
+        call    fputs
+        
+        ; Arquiva média               
+        lea     di, FileBuffer              ;|
+        lea     si, MsgInformarMedia        ;|
+        call    strcpy                      ;|
+        call    fputs                       ;|> Escreve msg "Media: "                                           
+                
+                ; Parte inteira
+                push    bx                  ;|
+                 lea     bx, FileBuffer     ;|
+                 mov     ax, media          ;|
+                 call    sprintf_w          ;|
+                pop    bx                   ;|FileBuffer = intTOstring( media ) 
+                call   fputs    
+                
+                mov     FileBuffer, ','
+                call    fputc 
+                ; ; Parte fracionária
+                push    bx                  ;|
+                 lea     bx, FileBuffer     ;|
+                 mov     ax, media_frac     ;|
+                 call    sprintf_w          ;|
+                pop    bx                   ;|FileBuffer = intTOstring( media ) 
+                call   fputs    
+                
         ; Fechar arquivo
         call    fclose
         call    RestauraRegs    ; Restaura valores dos registradores
         ret  
+    
     ; Local Variables
     linha_des       db      0   ; Índice da linha sendo lida de desenho
+    linha_16b       dw      0   ; Índice da linha incrementa de dois em dois
 
 SalvaOutputEmArquivo	endp
 
