@@ -87,20 +87,24 @@
     .model      small
     .stack
 ; Definições
-TRUE    equ     1
-FALSE   equ     0
+    TRUE    equ     1
+    FALSE   equ     0
 
-PRETO       equ     0
-AZUL        equ     1
-VERDE       equ     2
-CIANO       equ     3
-VERMELHO    equ     4
-VIOLETA     equ     5
-LARANJA     equ     6
-BRANCO      equ     7
+    PRETO       equ     0
+    AZUL        equ     1
+    VERDE       equ     2
+    CIANO       equ     3
+    VERMELHO    equ     4
+    VIOLETA     equ     5
+    LARANJA     equ     6
+    BRANCO      equ     7
 
-MODO_BRILHANTE      equ     8       ; Adiciona-se 8 às cores anteriores para se obtere uma versão mais brilhante da mesma
+    MODO_BRILHANTE      equ     8       ; Adiciona-se 8 às cores anteriores para se obter uma versão mais brilhante da mesma
 
+    ; Moldura
+    BLK_M_C_COL     equ     6
+    BLK_M_C_LIN     equ     3
+    
 ; System
     ; Tela
     WIN_LIN     equ     25      ; Qtd de linha da tela
@@ -191,53 +195,88 @@ sys_cor_texto       db      BRANCO       ; Cor do texto padrão
     const_10_w      dw      10        ; Constante 10 in word format
     const_100       db      100       ; Constante 100
     
+    ; Menu
+    sel_menu            dw      0         ; Seleção atual do menu    
+    MENU_QTD_ITENS      dw      4         ; Quantidade de itens do menu
+    
     ; Gerais
     string_buffer   db      100 dup (?)     ; Buffer de uso geral
 
+; Mensagens Apresentação
+MsgLogo          db      "  NCalc  ", EOS
+MsgBordaLogo     db      178, 178, 178, 178, 178, 178, 177, 177, 177, 177, 177, 177, 176, 176, 176, 176, "         ", 176, 176, 176, 176, 177, 177, 177, 177, 177, 177, 178, 178, 178, 178, 178, 178, EOS
+MsgUfrgsInf      db      "UFRGS - Instituto de Inform", 160,"tica", EOS
+MsgPressQQKEY    db      "Pressione qualquer tecla...", EOS
+MsgSiglaMean     db      "(r) NCalc: Nao Conhe", 135,"o Acr", 147,"nimo com mais L", 162,"gica", EOS
+MsgMyName        db      "Manoel Narciso Reis Soares Filho", EOS
+MsgMyCard        db      "00326621", EOS
+MsgData          db      "Novembro/2021", EOS
+
 ; Mensagens de exibição do resultado
-MsgInformarSoma      db	CR, LF, LF, "Soma : ", 0
-MsgInformarMedia     db	CR, LF,     "Media: ", 0
-MsgHeader            db	"   i	║       Entrada	  ║  Dig. Verif ║", CR, LF,"════════╩═════════════════╩═════════════╝", CR, LF, 0
+MsgInformarSoma      db	CR, LF, LF, "Soma : ", EOS
+MsgInformarMedia     db	CR, LF,     "Media: ", EOS
+MsgHeader            db	"   i	║       Entrada	  ║  Dig. Verif ║", CR, LF,"════════╩═════════════════╩═════════════╝", CR, LF, EOS
     
 ; Mensagens de erro
-MsgErroDefault      db	CR, LF,"Erro !!                                            ", CR, LF, 0
-MsgErroOpenFile		db	CR, LF,"Erro na abertura do arquivo !!                     ", CR, LF, 0
-MsgErroCloseFile    db	CR, LF,"Falha ao fechar arquivo. Risco de perda de dados !!", CR, LF, 0
-MsgErroReadFile		db	CR, LF,"Erro na leitura do arquivo  !!                     ", CR, LF, 0
-MsgErroWriteFile    db	CR, LF,"Erro na escrita do arquivo  !!                     ", CR, LF, 0
+MsgErroDefault      db	CR, LF,"Erro !!                                            ", CR, LF, EOS
+MsgErroOpenFile		db	CR, LF,"Erro na abertura do arquivo !!                     ", CR, LF, EOS
+MsgErroCloseFile    db	CR, LF,"Falha ao fechar arquivo. Risco de perda de dados !!", CR, LF, EOS
+MsgErroReadFile		db	CR, LF,"Erro na leitura do arquivo  !!                     ", CR, LF, EOS
+MsgErroWriteFile    db	CR, LF,"Erro na escrita do arquivo  !!                     ", CR, LF, EOS
 
 QTD_MSGS_ERROS      equ  5
 TAM_MSGS_ERROS      equ  56
 
+; Itens do Menu
+MenuCarregarArquivo     db  "Carregar Arquivo", EOS
+MenuAjuda               db  "Ajuda", EOS
+MenuSobre               db  "Sobre", EOS
+MenuSair                db  "Sair ", EOS
+
+MenuTit                 db  "MENU PRINCIPAL", EOS
+MenuInstructionUse         db  "( Teclas 'W' e 'S' para mover, ENTER para selecionar )", EOS
 
 ; Outras Mensagens
-MsgEntrada    		    db	CR, LF, LF, "___________________ NCalc ___________________", CR, LF, LF, 0
-MsgPedeArquivo		    db	"Nome do arquivo: ", 0
-MsgFN		            db	CR, LF, "Feliz Natal! ", CR, LF, 0
+MsgEntrada    		    db	CR, LF, LF, "___________________ NCalc ___________________", CR, LF, LF, EOS
+MsgPedeArquivo		    db	"Nome do arquivo: ", EOS
+MsgFN		            db	CR, LF, "Feliz Natal! ", CR, LF, EOS
  
 ; Mensagens de teste 
-MsgTesteColetarEntrada  db	CR, LF, LF, "Entrada lida do arquivo: ", CR, LF, LF, 0
-MsgTesteTratarEntrada   db	CR, LF, LF, "Entrada tratada: ", CR, LF, LF, 0
-MsgTesteFormatarEntrada db	CR, LF, LF, "Entrada formatada: ", CR, LF, LF, 0
-MsgTesteAQL             db	CR, LF, LF, "Analise qualitativa: ", CR, LF, LF, 0
-MsgTesteAQT             db	CR, LF, LF, "Analise quantitativa: ", CR, LF, LF, 0
-MsgTesteQtdLinhas       db	CR, LF, LF, "Qtd de linhas: ", 0
-MsgTesteQtdLinhasVal    db	CR, LF, LF, "Qtd de linhas validas: ", 0
-MsgTesteSoma            db	CR, LF, LF, "Soma: ", 0
-MsgTesteMedia           db	CR, LF, LF, "Media: ", 0
-MsgTesteDV              db	CR, LF, LF, "Digitos verificadores: ", 0
+MsgTesteColetarEntrada  db	CR, LF, LF, "Entrada lida do arquivo: ", CR, LF, LF, EOS
+MsgTesteTratarEntrada   db	CR, LF, LF, "Entrada tratada: ", CR, LF, LF, EOS
+MsgTesteFormatarEntrada db	CR, LF, LF, "Entrada formatada: ", CR, LF, LF, EOS
+MsgTesteAQL             db	CR, LF, LF, "Analise qualitativa: ", CR, LF, LF, EOS
+MsgTesteAQT             db	CR, LF, LF, "Analise quantitativa: ", CR, LF, LF, EOS
+MsgTesteQtdLinhas       db	CR, LF, LF, "Qtd de linhas: ", EOS
+MsgTesteQtdLinhasVal    db	CR, LF, LF, "Qtd de linhas validas: ", EOS
+MsgTesteSoma            db	CR, LF, LF, "Soma: ", EOS
+MsgTesteMedia           db	CR, LF, LF, "Media: ", EOS
+MsgTesteDV              db	CR, LF, LF, "Digitos verificadores: ", EOS
   	
     .code
     .startup
-	
-    inicio_programa:
+
+    ; call    getKey
+    ; lea     bx, string_buffer
+    ; mov     ah, 0
+    ; call    sprintf_w
+    ; call    puts
+; .exit EXIT_TEST
 	; Inicialização
     ; call    IniciaJanela
-
+    
     ; Apresentação
     call    ImprimirTelaInicial
-            
-    ; Entrada - Nome do Arquivo
+    
+    ; Menu
+    desenho_menu_principal:
+        call    ImprimirTelaMenu
+        loop_menu:
+            call    ImprimirMenu
+            call    AtualizarMenu
+            jmp     loop_menu
+        
+    ; Entrada - Nome do Arquivo   
 	call	GetFileName
 
     ; Coleta de dados do arquivo
@@ -424,6 +463,8 @@ MsgTesteDV              db	CR, LF, LF, "Digitos verificadores: ", 0
     ; Saída
     call   SalvaOutputEmArquivo
     ;call   ImprimeOutputTela
+    
+    fim_main:
     
     .exit
 ;--------------------------------------------------------------------
@@ -945,6 +986,95 @@ strcpy	endp
 
 
 ; ╔══════════════════════════════════════════════════════════════════╗
+; ║ strlen: Calcula comprimento de string                            ║
+; ║     IN:                                                          ║
+; ║         ds:si -> String( Não será modificada )                   ║
+; ║     OUT:                                                         ║
+; ║         cx -> Tamanho da string ( não conta o EOS )              ║
+; ╚══════════════════════════════════════════════════════════════════╝
+strlen	proc	near
+    ; Inicialização
+    push    dx    
+    push    si    
+    mov     cx, 0
+    
+    ; Contagem
+    loop_strlen:            
+        cmp     byte ptr[si], EOS    
+        je      fim_strlen          ; if( *string == '\0' ) goto fim;
+        
+        inc     si      ; string++
+        inc     cx      ; Tamanho++         
+        jmp     loop_strlen
+    
+    ; Fim
+    fim_strlen:
+        pop     si
+        pop     dx
+        ret 
+        
+strlen	endp
+
+
+; ╔══════════════════════════════════════════════════════════════════╗
+; ║ centralizaString: Calcula a coordenada de coluna que uma string  ║
+; ║ deve ser inserida na tela de modo que fique horizontalmente cen- ║
+; ║ tralizada                                                        ║
+; ║     IN:                                                          ║
+; ║         ds:si -> String( Não será modificada )                   ║
+; ║     OUT:                                                         ║
+; ║         dl    -> Coordenada "x" da tela                          ║
+; ╚══════════════════════════════════════════════════════════════════╝
+centralizaString	proc	near
+    ; Inicialização
+    push    ax    
+    push    cx    
+    
+    call    strlen
+    
+    push    dx
+     mov     dx, 0
+     mov     ax, WIN_COL
+     sub     ax, cx
+     div     const_2
+    pop     dx
+    
+    mov     dl, al          ; col = (largura_tela - strlen(string) ) / 2
+    
+    ; Fim
+    pop     cx
+    pop     ax
+    ret 
+        
+centralizaString	endp
+
+
+; ╔══════════════════════════════════════════════════════════════════╗
+; ║ centralizaString_PRO: Calcula a coordenada de coluna que uma     ║
+; ║ string deve ser inserida na tela de modo que fique horizontal-   ║
+; ║ mente centralizada e já altera a posição do cursor. A linha per- ║
+; ║ manece a atual                                                   ║
+; ║     IN:                                                          ║
+; ║         ds:si -> String( Não será modificada )                   ║
+; ║     OUT:                                                         ║
+; ║         dl    -> Coordenada "x" da tela                          ║
+; ╚══════════════════════════════════════════════════════════════════╝
+centralizaString_PRO	proc	near
+    ; Inicialização
+    call    SalvaRegs   ; Salvar registradores
+    
+    call    getCursorPos
+    call    centralizaString
+    call    setCursorPos
+    
+    ; Fim
+    call    RestauraRegs        ; Restaurar registradores
+    ret 
+        
+centralizaString_PRO	endp
+
+
+; ╔══════════════════════════════════════════════════════════════════╗
 ; ║ sprintf_w: Salva número de 16 bits em string como texto          ║
 ; ║     IN:                                                          ║
 ; ║         AX    -> Valor a ser salvo                               ║
@@ -1054,28 +1184,6 @@ rmFormatName	endp
 
 
 ; ╔══════════════════════════════════════════════════════════════════╗
-; ║ cursorHome: Retorna cursor para coluna 0 e linha 0               ║
-; ║     IN:                                                          ║
-; ║         void                                                     ║
-; ║     OUT:                                                         ║
-; ║         void                                                     ║
-; ╚══════════════════════════════════════════════════════════════════╝
-cursorHome    proc    near
- ; Salva registradores
-    call    SalvaRegs
-    
-    mov     dl, 0
-    mov     dh, 0
-    call    setCursorPos
-    
-    ; Fim
-    call    RestauraRegs    ; Salva registradores
-    ret
-    
-cursorHome    endp
-
-
-; ╔══════════════════════════════════════════════════════════════════╗
 ; ║ setCursorPos: Obtém a posição do cursor.                         ║
 ; ║     IN:                                                          ║
 ; ║         dl-> Coluna                                              ║
@@ -1117,6 +1225,55 @@ getCursorPos    proc    near
     ret
     
 getCursorPos    endp
+
+
+; ╔══════════════════════════════════════════════════════════════════╗
+; ║ cursorHome: Retorna cursor para coluna 0 e linha 0               ║
+; ║     IN:                                                          ║
+; ║         void                                                     ║
+; ║     OUT:                                                         ║
+; ║         void                                                     ║
+; ╚══════════════════════════════════════════════════════════════════╝
+cursorHome    proc    near
+ ; Salva registradores
+    call    SalvaRegs
+    
+    mov     dl, 0
+    mov     dh, 0
+    call    setCursorPos
+    
+    ; Fim
+    call    RestauraRegs    ; Salva registradores
+    ret
+    
+cursorHome    endp
+
+
+; ╔══════════════════════════════════════════════════════════════════╗
+; ║ incCursorLin: Incrementa linha do cursor, mantendo coluna        ║
+; ║     IN:                                                          ║
+; ║         void                                                     ║
+; ║     OUT:                                                         ║
+; ║         void                                                     ║
+; ╚══════════════════════════════════════════════════════════════════╝
+incCursorLin    proc    near
+    ; Salva Registradores
+    call    SalvaRegs
+
+    ; Obter coordenadas atuais do cursor
+    call    getCursorPos
+    
+    ; Incrementa linha
+    inc     dh
+    
+    ; Redefine coordenadas do cursor
+    call    setCursorPos
+    
+    ; Fim
+    call    RestauraRegs       ; Restaura registradores
+    ret
+    
+incCursorLin    endp
 
 
 ; ╔══════════════════════════════════════════════════════════════════╗
@@ -1201,6 +1358,34 @@ incCursorPos    endp
 
 ;═══════════════════════════════════════════════════════════════════════
 ;-----------------------------------------------------------------------
+; Sub-rotinas de controle de execução
+
+
+; ╔══════════════════════════════════════════════════════════════════╗
+; ║ getKey: Captura valor do teclado ( entra em modo de espera )     ║
+; ║     IN:                                                          ║
+; ║         void                                                     ║
+; ║     OUT:                                                         ║
+; ║         al -> Caractere digitado                                 ║
+; ╚══════════════════════════════════════════════════════════════════╝
+getKey	proc	near
+    push    bx   
+	 mov    bh, ah
+     
+     mov		ah,7
+	 int		__DOS_API_
+        
+	 mov    ah, bh
+	pop     bx
+    
+    ; Fim
+    ret
+getKey	endp
+
+
+
+;═══════════════════════════════════════════════════════════════════════
+;-----------------------------------------------------------------------
 ; Sub-rotinas específicas para a aplicação
 
 
@@ -1218,22 +1403,242 @@ ImprimirTelaInicial	proc	near
     call    clearScreen          ; Limpa a tela
     
     call    DesenhaMolduraTela   ; Desenha uma moldura na tela
+    call    DesenhaLogo          ; Escreve o logo "NCalc"
     
-    mov     dl, AZUL
+    ; Mensagem Ufrgs-Inf
+    lea     si, MsgUfrgsInf    
+    call    centralizaString
+    mov     dh, 3
+    call    setCursorPos        ; Posição do cursor
+    
+    mov     dl, CIANO
     mov     dh, 0
-    call    defCorTxt
-    lea		bx, MsgEntrada
-	call	puts
+    call    defCorTxt           ; Cor
+    
+    lea		bx, MsgUfrgsInf
+	call	puts                ; puts
+    
+    ; Mensagem Nome
+    call    incCursorLin
+    call    incCursorLin
+    lea     si, MsgMyName    
+    call    centralizaString_PRO
+    
+    lea		bx, MsgMyName
+	call	puts                ; puts
 
-    mov     dl, VERDE
-    mov     dh, 0
-    call    defCorTxt
+    ; Mensagem Cartão
+    call    incCursorLin
+    lea     si, MsgMyCard
+    call    centralizaString_PRO
     
-    ; Fim
+    lea		bx, MsgMyCard
+	call	puts                ; puts
+
+    
+    ; Mensagem "significado" do acrônimo
+    lea     si, MsgSiglaMean    
+    call    centralizaString
+    mov     dh, WIN_LIN/2
+    call    setCursorPos        ; Posição do cursor
+    
+    mov     dl, LARANJA
+    mov     dh, MODO_BRILHANTE
+    call    defCorTxt           ; Cor
+    
+    lea		bx, MsgSiglaMean
+	call	puts                ; puts
+
+    
+    ; Mensagem Data
+    call    incCursorLin
+    call    incCursorLin
+    lea     si, MsgData    
+    call    centralizaString_PRO
+    
+    mov     dl, PRETO
+    mov     dh, 1
+    call    defCorTxt           ; Cor
+    
+    lea		bx, MsgData
+	call	puts                ; puts
+    
+    ; Mensagem "Pressione qualquer tecla..."
+    lea     si, MsgPressQQKEY    
+    call    centralizaString
+    mov     dh, WIN_LIN - 3
+    call    setCursorPos        ; Posição do cursor
+    
+    mov     dl, BRANCO
+    mov     dh, 0
+    call    defCorTxt           ; Cor
+    
+    lea		bx, MsgPressQQKEY
+	call	puts                ; puts
+    
+    call    getKey      ; Aguarda usuário digitar tecla para seguir...
+    
+    ; Fim    
     call    RestauraRegs    ; Restaura valores dos registradores
     ret
      
 ImprimirTelaInicial	endp
+
+
+
+; ╔══════════════════════════════════════════════════════════════════╗
+; ║ ImprimirTelaMenu: Desenha os arredores do menu principal         ║
+; ║     IN:                                                          ║
+; ║         void                                                     ║
+; ║     OUT:                                                         ║
+; ║         void                                                     ║
+; ╚══════════════════════════════════════════════════════════════════╝
+ImprimirTelaMenu	proc	near
+    ; Inicialização
+    call    SalvaRegs
+
+    call    clearScreen          ; Limpa a tela
+    
+    call    DesenhaMolduraTela   ; Desenha uma moldura na tela
+    call    DesenhaLogo          ; Escreve o logo "NCalc"
+    
+    
+    ; Título do menu
+    mov     dl, LARANJA             ;|
+    mov     dh, MODO_BRILHANTE      ;|
+    call    defCorTxt               ;|> Define cor título amarelo
+    
+    lea     si, MenuTit             ;|
+    call    centralizaString        ;|
+    mov     dh, 5                   ;|
+    call    setCursorPos            ;|> Define posição do cursor
+    
+    mov     bx, si      ;|
+    call    puts        ;|> Imprime string
+        
+    ; Instruções de uso do menu
+    mov     dl, PRETO               ;|
+    mov     dh, TRUE                ;|
+    call    defCorTxt               ;|> Define cor do texto cinza
+    
+    
+    call    incCursorLin            ;|
+    lea     si, MenuInstructionUse  ;|
+    call    centralizaString_PRO    ;|> Define posição do cursor
+    
+    mov     bx, si      ;|
+    call    puts        ;|> Imprime string
+        
+    ; Fim    
+    call    RestauraRegs    ; Restaura valores dos registradores
+    ret
+        
+     
+ImprimirTelaMenu	endp
+
+
+; ╔══════════════════════════════════════════════════════════════════╗
+; ║ ImprimirMenu: Desenha o menu principal do programa               ║
+; ║     IN:                                                          ║
+; ║         void                                                     ║
+; ║     OUT:                                                         ║
+; ║         void                                                     ║
+; ╚══════════════════════════════════════════════════════════════════╝
+ImprimirMenu	proc	near
+    ; Inicialização
+    call    SalvaRegs
+       
+    ; Desenho dos itens
+    mov     dh, WIN_LIN/2               ; Linha inicial ( Cada item estará uma linha abaixo um do outro )
+    call    setCursorPos
+    
+    lea     si, MenuCarregarArquivo     ; 1º item do menu
+    mov     cx, MENU_QTD_ITENS          ; Quantidade de itens do menu
+    mov     bp, 0                       ; Indica qual item do menu está sendo desenhado ( o 1º é o item zero )
+    loop_desenho_itens:    
+        ; Posiciona cursor
+        call    centralizaString_PRO
+        
+        ; Define cor do item ( se for o item selecionado será diferente )
+        push    dx
+            cmp     bp, sel_menu
+            je      cor_item_selecionado
+            
+            mov     dl, BRANCO
+            mov     dh, MODO_BRILHANTE
+            jmp     set_cor_itens
+            
+            cor_item_selecionado:
+            mov     dl, VERDE
+            mov     dh, MODO_BRILHANTE
+            
+            set_cor_itens:
+            call    defCorTxt           ; Cor
+        pop    dx
+        
+        
+        ; Imprime string
+        mov		bx, si
+        call	puts                    ; puts
+        
+        ; Passa para próxima string
+        forward_pointer:
+            inc     si
+            cmp     byte ptr [si-1], EOS
+            jne      forward_pointer
+            
+        inc     bp
+        call    incCursorLin
+
+    loop loop_desenho_itens     
+    
+    ; Aguardar
+    call    getKey      ; Aguarda usuário digitar tecla para seguir...    temporario não estará aqui
+    
+    ; Fim    
+    call    RestauraRegs    ; Restaura valores dos registradores
+    ret
+        
+     
+ImprimirMenu	endp
+
+
+; ╔══════════════════════════════════════════════════════════════════╗
+; ║ AtualizarMenu: Atualiza a seleção do menu principal do programa  ║
+; ║     IN:                                                          ║
+; ║         void                                                     ║
+; ║     OUT:                                                         ║
+; ║         void                                                     ║
+; ╚══════════════════════════════════════════════════════════════════╝
+AtualizarMenu	proc	near
+    ; Inicialização
+    call    SalvaRegs
+       
+    ; Obtém tecla do usuário
+    call    getKey      ; Aguarda usuário digitar tecla para seguir... 
+    
+    ; Atualiza Seleção
+    cmp     al, 'a'
+    je      incrementa_sel_menu
+    cmp     al, 'A'
+    je      incrementa_sel_menu
+    jmp     checar_enter_key
+    
+    incrementa_sel_menu:
+        inc     sel_menu
+        jmp     fim_AtualizaMenu
+    
+    ; Checar tecla enter
+    checar_enter_key:
+    
+    
+    ; Fim    
+    fim_AtualizaMenu:
+        call    RestauraRegs    ; Restaura valores dos registradores
+        ret
+        
+     
+AtualizarMenu	endp
 
 
 ; ╔══════════════════════════════════════════════════════════════════╗
@@ -1247,6 +1652,7 @@ DesenhaMolduraTela	proc	near
     ; Inicialização
     call    SalvaRegs
     
+    
     mov     dl, 0   ; Coluna
     mov     dh, 0   ; Linha
     
@@ -1254,20 +1660,41 @@ DesenhaMolduraTela	proc	near
     mov     cx, WIN_COL     ; O número de repetições é o número de colunas
     loop_horizontal:
         call    setCursorPos
+
+        ; Define cor da moldura
+        push    dx                    ;|
+         cmp     dl, WIN_COL - BLK_M_C_COL
+         jae     lh_cor_realce
+         cmp     dl, BLK_M_C_COL
+         jbe     lh_cor_realce
         
-        push    dx              ;|
-            mov     dl, '#'     ;|
-            call    putchar     ;|
-        pop     dx              ;|> Desenha parte superior    
+         mov     dl, PRETO 
+         mov     dh, 1   
+         jmp     lh_set_cor   
+        
+         lh_cor_realce:
+         mov     dl, VERDE
+         mov     dh, 0       
+            
+         lh_set_cor:
+         call    defCorTxt   ;|> Cor da moldura   
+        pop     dx
+        
+        ; Imprime caracteres
+        push    dx
+        
+            mov     dl, mold_char     ;|
+            call    putchar           ;|
+        pop     dx                    ;|> Desenha parte superior    
                                 
         add     dh, WIN_LIN     ;|
         dec     dh              ;|        
         call    setCursorPos    ;|> Move cursor para a última linha da mesma coluna    
         
-        push    dx              ;|
-            mov     dl, '#'     ;|
-            call    putchar     ;|
-        pop     dx              ;|> Desenha parte inferior
+        push    dx                    ;|
+            mov     dl, mold_char     ;|
+            call    putchar           ;|
+        pop     dx                    ;|> Desenha parte inferior
         
         sub     dh, WIN_LIN     ;|
         inc     dh              ;|        
@@ -1283,19 +1710,39 @@ DesenhaMolduraTela	proc	near
     loop_Vertical:
         call    setCursorPos
         
-        push    dx              ;|
-            mov     dl, '@'     ;|
-            call    putchar     ;|
-        pop     dx              ;|> Desenha parte lateral esquerda    
+        ; Define cor da moldura
+        push    dx                    
+         cmp     dh, WIN_LIN - BLK_M_C_LIN
+         jae     lv_cor_realce
+         cmp     dh, BLK_M_C_LIN
+         jbe     lv_cor_realce
+        
+         mov     dl, PRETO 
+         mov     dh, 1   
+         jmp     lv_set_cor   
+        
+         lv_cor_realce:
+         mov     dl, VERDE
+         mov     dh, 0       
+            
+         lv_set_cor:
+         call    defCorTxt   ;|> Cor da moldura   
+        pop     dx
+
+        ; Escrever Caractere
+        push    dx                  ;|
+            mov     dl, mold_char   ;|
+            call    putchar         ;|
+        pop     dx                  ;|> Desenha parte lateral esquerda    
                                 
         add     dl, WIN_COL     ;|
         dec     dl              ;|        
         call    setCursorPos    ;|> Move cursor para a última coluna da mesma linha    
         
-        push    dx              ;|
-            mov     dl, '#'     ;|
-            call    putchar     ;|
-        pop     dx              ;|> Desenha parte lateral direita
+        push    dx                  ;|
+            mov     dl, mold_char   ;|
+            call    putchar         ;|
+        pop     dx                  ;|> Desenha parte lateral direita
         
         sub     dl, WIN_COL     ;|
         inc     dl              ;|        
@@ -1310,8 +1757,59 @@ DesenhaMolduraTela	proc	near
     ; Fim
     call    RestauraRegs    ; Restaura valores dos registradores
     ret
+    
+    ; Local Variables
+    ; mold_char   db      'Ω'     ; Caractere que irá compor a moldura
+    mold_char   db      219     ; Caractere que irá compor a moldura
      
 DesenhaMolduraTela	endp
+
+
+; ╔══════════════════════════════════════════════════════════════════╗
+; ║ DesenhaLogo: Desenha o logo na tela                              ║
+; ║     IN:                                                          ║
+; ║         void                                                     ║
+; ║     OUT:                                                         ║
+; ║         void                                                     ║
+; ╚══════════════════════════════════════════════════════════════════╝
+DesenhaLogo	proc	near
+    ; Inicialização
+    call    SalvaRegs
+    
+    ; Define cor da borda do logo
+    mov     dl, PRETO   ;|
+    mov     dh, 1       ;|
+    call    defCorTxt   ;|> Cor da moldura cinza ( cor preta no modo brilhante )
+    
+    ; Borda do logo
+    lea     si, MsgBordaLogo
+    call    centralizaString    ; Define coluna
+    mov     dh, 0               ; Linha
+    call    setCursorPos
+
+    lea     bx, MsgBordaLogo
+    call    puts    
+    
+    ; Define cor do logo
+    mov     dl, VERDE   ;|
+    mov     dh, 0       ;|
+    call    defCorTxt   ;|> Cor da moldura verde
+    
+    
+    ; Logo em si
+    lea     si, MsgLogo
+    call    centralizaString    ; Define coluna
+    mov     dh, 0               ; Linha
+    call    setCursorPos
+    
+    lea     bx, MsgLogo
+    call    puts    
+    
+    ; Fim
+    call    RestauraRegs    ; Restaura valores dos registradores
+    ret
+         
+DesenhaLogo	endp
 
 
 ; ╔══════════════════════════════════════════════════════════════════╗
@@ -1371,7 +1869,27 @@ FechaArquivo	endp
 ; ║     OUT: void                                                    ║
 ; ╚══════════════════════════════════════════════════════════════════╝
 GetFileName	proc	near
+    ; Inicizalização
+    call    SalvaRegs           ; Salva valores dos registradores
 
+    ; Define cor do texto da pergunta
+    mov     dl, VERDE   ;|
+    mov     dh, 0       ;|
+    call    defCorTxt   ;|> Pergunta Verde
+    
+    ; Pergunta nome do arquivo        
+    lea     si, MsgPedeArquivo
+    call    centralizaString        ; Coluna (dl) será calculada pela sub-rotina
+    mov     dh, 5                   ; Linha
+    ; call    strlen
+    
+    ; mov     ax, WIN_COL
+    ; sub     ax, cx
+    ; div     const_2
+    
+    ; mov     dl, al          ; col = (largura_tela - strlen(string) ) / 2
+    ; mov     dh, 5
+    call    setCursorPos            ; Posiciona cursor
 	;	puts("Nome do arquivo: ");
 	lea		bx,MsgPedeArquivo
 	call	puts
@@ -1398,6 +1916,7 @@ GetFileName	proc	near
 	;	// Coloca o '\0' no final do string
 	;	*d = '\0';
 	mov		byte ptr es:[di], 0
+    call    RestauraRegs    ; Restaura valores dos registradores
 	ret
 GetFileName	endp
 
@@ -1550,6 +2069,9 @@ rmFinalArquivoDesn      endp
 ; ║         void                                                     ║
 ; ╚══════════════════════════════════════════════════════════════════╝
 AnaliseQualitativa    proc	near 
+    ; Inicialização
+    call    SalvaRegs
+
     lea     si, entrada
     mov     bx, 0               ; Contador da linha
     mov     status_linha[0], TRUE  ; Inicializa status_linha[0]
