@@ -6,7 +6,7 @@
 ; ║    Estudante: Manoel Narciso Reis Soares Filho                   ║
 ; ║    Data: 21/11/2021                                              ║
 ; ╠══════════════════════════════════════════════════════════════════╣
-; ║    Programa para o processador Intel 80x86                       ║
+; ║    Programa  NCalc para o processador Intel 80x86                ║
 ; ║                                                                  ║
 ; ║   → Abre arquivo de texto com valores reais e calcula a soma,    ║
 ; ║   a média aritmética dos valores e o dígito verificador de cada  ║
@@ -22,6 +22,9 @@
 ; ║   → Obs.5: Intervalo válido para as entradas = [0,00 ; 499,99]   ║
 ; ║   → Obs.6: Utilize duas casas decimais                           ║
 ; ║   → Obs.7: Linhas com entradas inválidas serão desconsideradas   ║
+; ║   → Obs.8: O dígito verificador(DV) é o número formado pela pari-║
+; ║   dade par da parte inteira da entrada na casa decimal e a pari- ║
+; ║   dade par da parte fracionária da entrada na casa das unidades  ║
 ; ╠══════════════════════════════════════════════════════════════════╣
 ; ║   Lista de interrupções de software utilizadas                   ║
 ; ║                                                                  ║
@@ -87,7 +90,22 @@
 TRUE    equ     1
 FALSE   equ     0
 
+PRETO       equ     0
+AZUL        equ     1
+VERDE       equ     2
+CIANO       equ     3
+VERMELHO    equ     4
+VIOLETA     equ     5
+LARANJA     equ     6
+BRANCO      equ     7
+
+MODO_BRILHANTE      equ     8       ; Adiciona-se 8 às cores anteriores para se obtere uma versão mais brilhante da mesma
+
 ; System
+    ; Tela
+    WIN_LIN     equ     25      ; Qtd de linha da tela
+    WIN_COL     equ     80      ; Qtd de colunas da tela
+    
     ; Códigos de Retorno
     EXIT_SUCCESS     equ     0
     EXIT_FAILURE     equ     1
@@ -119,10 +137,18 @@ _fclose         equ     3Eh
 _fread          equ     3Fh
 _fwrite         equ     40h
 
+__GRAPHIC_    equ     10h
+_setModeVideo   equ     00h
+_setCursoPos    equ     02h
+_getCursoPos    equ     03h
+_putcharPRO     equ     09h
+
+
 ; Códigos
 
 ; Arquivos - Modos
 ARQ_READ        equ     00h
+ARQ_WRITE       equ     01h
     
     .data
 ; Variáveis para o sistema de arquivos
@@ -133,6 +159,9 @@ EndFormatRES    db		".res", EOS     ; Nome do formato do arquivo de saída
 FileBuffer		db		150  dup (?)		; Buffer de leitura do arquivo
 FileHandle		dw		0				; Handler do arquivo
 FileNameBuffer	db		150 dup (?)
+
+; Variáveis gráficas
+sys_cor_texto       db      BRANCO       ; Cor do texto padrão
 
 ; Variáveis para a aplicação
     ; Entrada
@@ -201,11 +230,12 @@ MsgTesteDV              db	CR, LF, LF, "Digitos verificadores: ", 0
     .code
     .startup
 	
+    inicio_programa:
 	; Inicialização
-    
+    ; call    IniciaJanela
+
     ; Apresentação
-    lea		bx, MsgEntrada
-	call	puts
+    call    ImprimirTelaInicial
             
     ; Entrada - Nome do Arquivo
 	call	GetFileName
@@ -413,18 +443,31 @@ MsgTesteDV              db	CR, LF, LF, "Digitos verificadores: ", 0
 putchar	    proc	near
     ; Salva registradores
     call    SalvaRegs
-    
-    push    bx
+
+    ; Testa se é caractere visível
+    cmp     dl, 33
+    jae     escrever_char_vis
     
     ; Escrever caractere
     mov		ah, _putchar        ;| 
     int		__DOS_API_          ;|> putchar( dl )
+    jmp     fim_putchar    
     
-    pop    bx
+    ; Escrever caractere visível
+    escrever_char_vis:
+        mov     ah, _putcharPRO     
+        mov     al, dl
+        mov     bl, sys_cor_texto
+        mov     bh, 0
+        mov     cx, 1
+        int     __GRAPHIC_
+        
+        call    incCursorPos
 		
     ;Fim
-    call    RestauraRegs        ; Restaura valor dos registradores
-    ret
+    fim_putchar:
+        call    RestauraRegs        ; Restaura valor dos registradores
+        ret
 putchar 	endp
 
 
@@ -1007,7 +1050,269 @@ rmFormatName	endp
 
 ;═══════════════════════════════════════════════════════════════════════
 ;-----------------------------------------------------------------------
+; Sub-rotinas gráficas
+
+
+; ╔══════════════════════════════════════════════════════════════════╗
+; ║ cursorHome: Retorna cursor para coluna 0 e linha 0               ║
+; ║     IN:                                                          ║
+; ║         void                                                     ║
+; ║     OUT:                                                         ║
+; ║         void                                                     ║
+; ╚══════════════════════════════════════════════════════════════════╝
+cursorHome    proc    near
+ ; Salva registradores
+    call    SalvaRegs
+    
+    mov     dl, 0
+    mov     dh, 0
+    call    setCursorPos
+    
+    ; Fim
+    call    RestauraRegs    ; Salva registradores
+    ret
+    
+cursorHome    endp
+
+
+; ╔══════════════════════════════════════════════════════════════════╗
+; ║ setCursorPos: Obtém a posição do cursor.                         ║
+; ║     IN:                                                          ║
+; ║         dl-> Coluna                                              ║
+; ║         dh-> Linha                                               ║
+; ║     OUT:                                                         ║
+; ║         void                                                     ║
+; ╚══════════════════════════════════════════════════════════════════╝
+setCursorPos    proc    near
+    push    bp  ; Aparentemente pode ser apagado pela int 10h
+
+    mov     ah, _setCursoPos
+    mov     bh, 0
+    int     __GRAPHIC_
+    
+    pop     bp
+    ret
+    
+setCursorPos    endp
+
+
+; ╔══════════════════════════════════════════════════════════════════╗
+; ║ getCursorPos: Obtém a posição do cursor.                         ║
+; ║     IN:                                                          ║
+; ║         void                                                     ║
+; ║     OUT:                                                         ║
+; ║         cl-> ?                                                   ║
+; ║         ch-> ?                                                   ║
+; ║         dl-> Coluna                                              ║
+; ║         dh-> Linha                                               ║
+; ╚══════════════════════════════════════════════════════════════════╝
+getCursorPos    proc    near
+    push    bp  ; Aparentemente pode ser apagado pela int 10h
+    
+    mov     ah, _getCursoPos
+    mov     bh, 0
+    int     __GRAPHIC_
+    
+    pop     bp
+    ret
+    
+getCursorPos    endp
+
+
+; ╔══════════════════════════════════════════════════════════════════╗
+; ║ defCorTxt: Define a cor do texto                                 ║
+; ║     IN:                                                          ║
+; ║         dl -> Nova cor padrão para o texto                       ║
+; ║         dh -> Ativar modo brilhante se diferente de zero         ║
+; ║     OUT:                                                         ║
+; ║         void                                                     ║
+; ╚══════════════════════════════════════════════════════════════════╝
+defCorTxt    proc    near    
+    mov     sys_cor_texto, dl    
+    
+    cmp     dh, 0
+    je      fim_defCorTxt
+    
+    ; Ativar modo brilhante
+    cmp     sys_cor_texto, 7        ;|
+    ja      fim_defCorTxt           ;|> Checa se já não está ativo
+    
+    add     sys_cor_texto, MODO_BRILHANTE   ; Ativa modo brilhante
+    
+    fim_defCorTxt:
+        ret
+    
+defCorTxt    endp
+
+
+; ╔══════════════════════════════════════════════════════════════════╗
+; ║ clearScreen: Limpa tela                                          ║
+; ║     IN:                                                          ║
+; ║         void                                                     ║
+; ║     OUT:                                                         ║
+; ║         void                                                     ║
+; ╚══════════════════════════════════════════════════════════════════╝
+clearScreen	proc	near
+	mov	ah,0	; Seta modo da tela
+	mov	al,3	; Text mode, 16 color text, 80x25.
+	int	10h
+	ret
+clearScreen	endp
+
+
+; ╔══════════════════════════════════════════════════════════════════╗
+; ║ incCursorPos: Incrementa a posição horizontal do cursor. Caso a- ║
+; ║ tinja o limite lateral direito da tela reinicia a posição hori-  ║
+; ║ zontal para zero e incrementa a posição vertical                 ║
+; ║     IN:                                                          ║
+; ║         dx-> "Nome do arquivo"                                   ║
+; ║     OUT:                                                         ║
+; ║         ax-> Descritor do arquivo ( FALSE em caso de erro )      ║
+; ╚══════════════════════════════════════════════════════════════════╝
+incCursorPos    proc    near
+    ; Salva registradores
+    call    SalvaRegs
+    
+    ; Incrementa posição do cursor
+    call    getCursorPos    
+    inc     dl              ; col++
+    
+    cmp     dl, WIN_COL     ; )
+    jae     cursor_fora_dos_limite
+    
+    define_pos_cursor_incCP:
+        call    setCursorPos
+    
+    ; Fim
+    call    RestauraRegs    ; Restaura registradores
+    ret
+    
+    
+    ; Cursor fora dos limites
+    cursor_fora_dos_limite:
+        ; Caso col >= WIN_COL
+        mov     dl, 0   ; col = 0
+        inc     dh      ; lin++
+        jmp     define_pos_cursor_incCP
+        
+incCursorPos    endp
+
+
+
+;═══════════════════════════════════════════════════════════════════════
+;-----------------------------------------------------------------------
 ; Sub-rotinas específicas para a aplicação
+
+
+; ╔══════════════════════════════════════════════════════════════════╗
+; ║ ImprimirTelaInicial: Desenha o layout inicial do programa        ║
+; ║     IN:                                                          ║
+; ║         void                                                     ║
+; ║     OUT:                                                         ║
+; ║         void                                                     ║
+; ╚══════════════════════════════════════════════════════════════════╝
+ImprimirTelaInicial	proc	near
+    ; Inicialização
+    call    SalvaRegs
+
+    call    clearScreen          ; Limpa a tela
+    
+    call    DesenhaMolduraTela   ; Desenha uma moldura na tela
+    
+    mov     dl, AZUL
+    mov     dh, 0
+    call    defCorTxt
+    lea		bx, MsgEntrada
+	call	puts
+
+    mov     dl, VERDE
+    mov     dh, 0
+    call    defCorTxt
+    
+    ; Fim
+    call    RestauraRegs    ; Restaura valores dos registradores
+    ret
+     
+ImprimirTelaInicial	endp
+
+
+; ╔══════════════════════════════════════════════════════════════════╗
+; ║ DesenhaMolduraTela: Desenha uma moldura na tela                  ║
+; ║     IN:                                                          ║
+; ║         void                                                     ║
+; ║     OUT:                                                         ║
+; ║         void                                                     ║
+; ╚══════════════════════════════════════════════════════════════════╝
+DesenhaMolduraTela	proc	near
+    ; Inicialização
+    call    SalvaRegs
+    
+    mov     dl, 0   ; Coluna
+    mov     dh, 0   ; Linha
+    
+    ; Loop Horizontal
+    mov     cx, WIN_COL     ; O número de repetições é o número de colunas
+    loop_horizontal:
+        call    setCursorPos
+        
+        push    dx              ;|
+            mov     dl, '#'     ;|
+            call    putchar     ;|
+        pop     dx              ;|> Desenha parte superior    
+                                
+        add     dh, WIN_LIN     ;|
+        dec     dh              ;|        
+        call    setCursorPos    ;|> Move cursor para a última linha da mesma coluna    
+        
+        push    dx              ;|
+            mov     dl, '#'     ;|
+            call    putchar     ;|
+        pop     dx              ;|> Desenha parte inferior
+        
+        sub     dh, WIN_LIN     ;|
+        inc     dh              ;|        
+        call    setCursorPos    ;|> Retorna coordenada y do cursor para a primeira linha da mesma coluna  
+
+        
+        inc     dl
+    loop    loop_horizontal
+    
+    ; Loop Vertical
+    call    cursorHome      ; Retorna cursor para (0;0)
+    mov     cx, WIN_LIN     ; O número de repetições é o número de linhas
+    loop_Vertical:
+        call    setCursorPos
+        
+        push    dx              ;|
+            mov     dl, '@'     ;|
+            call    putchar     ;|
+        pop     dx              ;|> Desenha parte lateral esquerda    
+                                
+        add     dl, WIN_COL     ;|
+        dec     dl              ;|        
+        call    setCursorPos    ;|> Move cursor para a última coluna da mesma linha    
+        
+        push    dx              ;|
+            mov     dl, '#'     ;|
+            call    putchar     ;|
+        pop     dx              ;|> Desenha parte lateral direita
+        
+        sub     dl, WIN_COL     ;|
+        inc     dl              ;|        
+        call    setCursorPos    ;|> Retorna coordenada x do cursor para a primeira coluna da mesma linha
+
+        
+        inc     dh
+    loop    loop_Vertical
+
+    call    cursorHome      ; Retorna cursor para (0;0)
+    
+    ; Fim
+    call    RestauraRegs    ; Restaura valores dos registradores
+    ret
+     
+DesenhaMolduraTela	endp
+
 
 ; ╔══════════════════════════════════════════════════════════════════╗
 ; ║ AbreArquivo: Abre arquivo e confere abertura                     ║
@@ -1245,8 +1550,6 @@ rmFinalArquivoDesn      endp
 ; ║         void                                                     ║
 ; ╚══════════════════════════════════════════════════════════════════╝
 AnaliseQualitativa    proc	near 
-    ; Inicialização
-    call    SalvaRegs
     lea     si, entrada
     mov     bx, 0               ; Contador da linha
     mov     status_linha[0], TRUE  ; Inicializa status_linha[0]
@@ -1975,7 +2278,15 @@ SalvaOutputEmArquivo    proc	near
         mov     FileBuffer, ','
         call    fputc
         
-        ; Parte fracionária
+        
+        ; Parte fracionária       
+        cmp     soma_frac, 10
+        jae     grava_somafrac
+        
+        mov     FileBuffer, '0'
+        call    fputc
+        
+        grava_somafrac:
         push    bx                  ;|
          lea     bx, FileBuffer     ;|
          mov     ax, soma_frac      ;|
@@ -1999,7 +2310,14 @@ SalvaOutputEmArquivo    proc	near
                 
                 mov     FileBuffer, ','
                 call    fputc 
-                ; ; Parte fracionária
+                ; Parte fracionária
+                cmp     media_frac, 10
+                jae     grava_medfrac
+                
+                mov     FileBuffer, '0'
+                call    fputc
+                
+                grava_medfrac:
                 push    bx                  ;|
                  lea     bx, FileBuffer     ;|
                  mov     ax, media_frac     ;|
